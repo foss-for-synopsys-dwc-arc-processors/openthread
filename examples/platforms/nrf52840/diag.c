@@ -242,7 +242,7 @@ void otPlatDiagTxPowerSet(int8_t aTxPower)
     sTxPower = aTxPower;
 }
 
-void otPlatDiagRadioReceived(otInstance *aInstance, RadioPacket *aFrame, otError aError)
+void otPlatDiagRadioReceived(otInstance *aInstance, otRadioFrame *aFrame, otError aError)
 {
     (void) aInstance;
 
@@ -254,7 +254,7 @@ void otPlatDiagRadioReceived(otInstance *aInstance, RadioPacket *aFrame, otError
 
             if (strncmp(message->mMessageDescriptor, "DiagMessage", 11) == 0)
             {
-                otPlatLog(kLogLevelDebg, kLogRegionPlatform,
+                otPlatLog(OT_LOG_LEVEL_DEBG, OT_LOG_REGION_PLATFORM,
                           "{\"Frame\":{"
                           "\"LocalChannel\":%u ,"
                           "\"RemoteChannel\":%u,"
@@ -281,7 +281,7 @@ void otPlatDiagAlarmCallback(otInstance *aInstance)
     {
         if ((sTxCount > 0) || (sTxCount == -1))
         {
-            RadioPacket *sTxPacket = otPlatRadioGetTransmitBuffer(aInstance);
+            otRadioFrame *sTxPacket = otPlatRadioGetTransmitBuffer(aInstance);
 
             sTxPacket->mLength = sizeof(struct PlatformDiagMessage);
             sTxPacket->mChannel = sChannel;
@@ -307,7 +307,7 @@ void otPlatDiagAlarmCallback(otInstance *aInstance)
         {
             sTransmitActive = false;
             otPlatAlarmStop(aInstance);
-            otPlatLog(kLogLevelDebg, kLogRegionPlatform, "Transmit done");
+            otPlatLog(OT_LOG_LEVEL_DEBG, OT_LOG_REGION_PLATFORM, "Transmit done");
         }
     }
 }

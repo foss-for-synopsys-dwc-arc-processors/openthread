@@ -81,7 +81,7 @@ otLwfCmdInitialize(
     {
         pFilter->cmdTIDsInUse = 0;
         pFilter->cmdNextTID = 1;
-        pFilter->cmdResetReason = kPlatResetReason_PowerOn;
+        pFilter->cmdResetReason = OT_PLAT_RESET_REASON_POWER_ON;
 
         NdisAllocateSpinLock(&pFilter->cmdLock);
         InitializeListHead(&pFilter->cmdHandlers);
@@ -934,7 +934,7 @@ _IRQL_requires_max_(PASSIVE_LEVEL)
 VOID
 otLwfCmdSendMacFrameAsync(
     _In_ PMS_FILTER     pFilter,
-    _In_ RadioPacket*   Packet
+    _In_ otRadioFrame*  Packet
     )
 {
     // Reset the completion event

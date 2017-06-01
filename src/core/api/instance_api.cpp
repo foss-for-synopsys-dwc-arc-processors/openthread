@@ -211,7 +211,7 @@ otError otInstanceErasePersistentInfo(otInstance *aInstance)
 {
     otError error = OT_ERROR_NONE;
 
-    VerifyOrExit(otThreadGetDeviceRole(aInstance) == kDeviceRoleDisabled, error = OT_ERROR_INVALID_STATE);
+    VerifyOrExit(otThreadGetDeviceRole(aInstance) ==  OT_DEVICE_ROLE_DISABLED, error = OT_ERROR_INVALID_STATE);
     otPlatSettingsWipe(aInstance);
 
 exit:
@@ -239,7 +239,7 @@ otError otSetDynamicLogLevel(otInstance *aInstance, otLogLevel aLogLevel)
 #if OPENTHREAD_CONFIG_ENABLE_DYNAMIC_LOG_LEVEL
     aInstance->mLogLevel = aLogLevel;
 #else
-    error = OT_ERROR_NOT_CAPABLE;
+    error = OT_ERROR_DISABLED_FEATURE;
     (void)aInstance;
     (void)aLogLevel;
 #endif

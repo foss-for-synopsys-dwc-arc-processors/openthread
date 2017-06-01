@@ -77,18 +77,20 @@ private:
         kTxStateHandlingSendDone    // The frame was sent successfully, waiting to prepare the next one (if any).
     };
 
-    static void SpiTransactionComplete(void *context, uint8_t *aOutputBuf, uint16_t aOutputBufLen, uint8_t *aInputBuf,
+    static bool SpiTransactionComplete(void *aContext, uint8_t *aOutputBuf, uint16_t aOutputBufLen, uint8_t *aInputBuf,
                                        uint16_t aInputBufLen, uint16_t aTransactionLength);
-    void SpiTransactionComplete(uint8_t *aOutputBuf, uint16_t aOutputBufLen, uint8_t *aInputBuf, uint16_t aInputBufLen,
+    bool SpiTransactionComplete(uint8_t *aOutputBuf, uint16_t aOutputBufLen, uint8_t *aInputBuf, uint16_t aInputBufLen,
                                 uint16_t aTransactionLength);
 
-    static void HandleRxFrame(void *context);
-    void HandleRxFrame(void);
+    static void SpiTransactionProcess(void *aContext);
+    void SpiTransactionProcess(void);
+
+    static void HandleFrameAddedToTxBuffer(void *aContext, NcpFrameBuffer::FrameTag aFrameTag,
+                                           NcpFrameBuffer *aNcpFrameBuffer);
 
     static void PrepareTxFrame(void *context);
     void PrepareTxFrame(void);
-
-    static void TxFrameBufferHasData(void *aContext, NcpFrameBuffer *aNcpFrameBuffer);
+    void HandleRxFrame(void);
 
     otError PrepareNextSpiSendFrame(void);
 
@@ -96,7 +98,6 @@ private:
     volatile bool mHandlingRxFrame;
     volatile bool mResetFlag;
 
-    Tasklet mHandleRxFrameTask;
     Tasklet mPrepareTxFrameTask;
 
     uint16_t mSendFrameLen;

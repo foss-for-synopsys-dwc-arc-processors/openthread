@@ -280,7 +280,7 @@ private:
     static void OTCALL s_HandleActiveScanResult(otActiveScanResult *aResult, void *aContext);
     static void OTCALL s_HandleNetifStateChanged(uint32_t aFlags, void *aContext);
 #ifndef OTDLL
-    static void s_HandleLinkPcapReceive(const RadioPacket *aFrame, void *aContext);
+    static void s_HandleLinkPcapReceive(const otRadioFrame *aFrame, void *aContext);
 #endif
     static void OTCALL s_HandleEnergyReport(uint32_t aChannelMask, const uint8_t *aEnergyList, uint8_t aEnergyListLength,
                                             void *aContext);
@@ -298,7 +298,7 @@ private:
 
 #ifndef OTDLL
     void HandleIcmpReceive(Message &aMessage, const Ip6::MessageInfo &aMessageInfo,
-                           const Ip6::IcmpHeader &aIcmpHeader);
+                           const otIcmp6Header &aIcmpHeader);
     void HandlePingTimer();
 #endif
     void HandleActiveScanResult(otActiveScanResult *aResult);
@@ -308,7 +308,7 @@ private:
     void HandleNetifStateChanged(uint32_t aFlags);
 #endif
 #ifndef OTDLL
-    void HandleLinkPcapReceive(const RadioPacket *aFrame);
+    void HandleLinkPcapReceive(const otRadioFrame *aFrame);
 #endif
     void HandleEnergyReport(uint32_t aChannelMask, const uint8_t *aEnergyList, uint8_t aEnergyListLength);
     void HandlePanIdConflict(uint16_t aPanId, uint32_t aChannelMask);
@@ -323,7 +323,7 @@ private:
 
     static const struct Command sCommands[];
 
-    Server *sServer;
+    Server *mServer;
 
 #ifdef OTDLL
 
@@ -333,8 +333,8 @@ private:
 
     struct otCliContext
     {
-        Interpreter *aInterpreter;
-        otInstance  *aInstance;
+        Interpreter *mInterpreter;
+        otInstance  *mInstance;
     };
     otCliContext mInstances[MAX_CLI_OT_INSTANCES];
     uint8_t mInstancesLength;
@@ -342,12 +342,12 @@ private:
 
 #else
 
-    Ip6::MessageInfo sMessageInfo;
+    Ip6::MessageInfo mMessageInfo;
 
-    uint16_t sLength;
-    uint16_t sCount;
-    uint32_t sInterval;
-    Timer sPingTimer;
+    uint16_t mLength;
+    uint16_t mCount;
+    uint32_t mInterval;
+    Timer mPingTimer;
 
     otNetifAddress  mSlaacAddresses[OPENTHREAD_CONFIG_NUM_SLAAC_ADDRESSES];
 #if OPENTHREAD_ENABLE_DHCP6_CLIENT

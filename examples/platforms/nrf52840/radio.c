@@ -63,6 +63,7 @@
 
 #define SHORT_ADDRESS_SIZE    2
 #define EXTENDED_ADDRESS_SIZE 8
+#define PENDING_BIT           0x10
 
 enum
 {
@@ -71,15 +72,15 @@ enum
 
 static bool sDisabled;
 
-static RadioPacket sReceivedFrames[RADIO_RX_BUFFERS];
-static RadioPacket sTransmitFrame;
-static uint8_t     sTransmitPsdu[kMaxPHYPacketSize + 1]
+static otRadioFrame sReceivedFrames[RADIO_RX_BUFFERS];
+static otRadioFrame sTransmitFrame;
+static uint8_t      sTransmitPsdu[OT_RADIO_FRAME_MAX_SIZE + 1]
 __attribute__((section("nrf_radio_buffer.sTransmiPsdu")));
-static bool        sTransmitPendingBit;
+static otRadioFrame sAckFrame;
 
-static uint32_t    sEnergyDetectionTime;
-static uint8_t     sEnergyDetectionChannel;
-static int8_t      sEnergyDetected;
+static uint32_t     sEnergyDetectionTime;
+static uint8_t      sEnergyDetectionChannel;
+static int8_t       sEnergyDetected;
 
 typedef enum
 {
@@ -102,6 +103,8 @@ static void dataInit(void)
     {
         sReceivedFrames[i].mPsdu = NULL;
     }
+
+    memset(&sAckFrame, 0, sizeof(sAckFrame));
 }
 
 static void convertShortAddress(uint8_t *aTo, uint16_t aFrom)
@@ -208,32 +211,32 @@ void nrf5RadioDeinit(void)
     nrf_drv_radio802154_deinit();
 }
 
-PhyState otPlatRadioGetState(otInstance *aInstance)
+otRadioState otPlatRadioGetState(otInstance *aInstance)
 {
     (void) aInstance;
 
     if (sDisabled)
     {
-        return kStateDisabled;
+        return OT_RADIO_STATE_DISABLED;
     }
 
     switch (nrf_drv_radio802154_state_get())
     {
     case NRF_DRV_RADIO802154_STATE_SLEEP:
-        return kStateSleep;
+        return OT_RADIO_STATE_SLEEP;
 
     case NRF_DRV_RADIO802154_STATE_RECEIVE:
     case NRF_DRV_RADIO802154_STATE_ENERGY_DETECTION:
-        return kStateReceive;
+        return OT_RADIO_STATE_RECEIVE;
 
     case NRF_DRV_RADIO802154_STATE_TRANSMIT:
-        return kStateTransmit;
+        return OT_RADIO_STATE_TRANSMIT;
 
     default:
         assert(false); // Make sure driver returned valid state.
     }
 
-    return kStateReceive; // It is the default state. Return it in case of unknown.
+    return OT_RADIO_STATE_RECEIVE; // It is the default state. Return it in case of unknown.
 }
 
 otError otPlatRadioEnable(otInstance *aInstance)
@@ -308,13 +311,13 @@ otError otPlatRadioReceive(otInstance *aInstance, uint8_t aChannel)
     return OT_ERROR_NONE;
 }
 
-otError otPlatRadioTransmit(otInstance *aInstance, RadioPacket *aPacket)
+otError otPlatRadioTransmit(otInstance *aInstance, otRadioFrame *aFrame)
 {
     (void) aInstance;
 
-    aPacket->mPsdu[-1] = aPacket->mLength;
+    aFrame->mPsdu[-1] = aFrame->mLength;
 
-    if (nrf_drv_radio802154_transmit(&aPacket->mPsdu[-1], aPacket->mChannel, aPacket->mPower))
+    if (nrf_drv_radio802154_transmit(&aFrame->mPsdu[-1], aFrame->mChannel, aFrame->mPower))
     {
         clearPendingEvents();
     }
@@ -327,7 +330,7 @@ otError otPlatRadioTransmit(otInstance *aInstance, RadioPacket *aPacket)
     return OT_ERROR_NONE;
 }
 
-RadioPacket *otPlatRadioGetTransmitBuffer(otInstance *aInstance)
+otRadioFrame *otPlatRadioGetTransmitBuffer(otInstance *aInstance)
 {
     (void) aInstance;
 
@@ -345,7 +348,7 @@ otRadioCaps otPlatRadioGetCaps(otInstance *aInstance)
 {
     (void) aInstance;
 
-    return kRadioCapsEnergyScan;
+    return OT_RADIO_CAPS_ENERGY_SCAN;
 }
 
 bool otPlatRadioGetPromiscuous(otInstance *aInstance)
@@ -519,12 +522,20 @@ void nrf5RadioProcess(otInstance *aInstance)
 
         if (otPlatDiagModeGet())
         {
-            otPlatDiagRadioTransmitDone(aInstance, &sTransmitFrame, sTransmitPendingBit, OT_ERROR_NONE);
+            bool pendingBit = ((sAckFrame.mPsdu != NULL) && (sAckFrame.mPsdu[1] & PENDING_BIT)) ? true : false;
+            otPlatDiagRadioTransmitDone(aInstance, &sTransmitFrame, pendingBit, OT_ERROR_NONE);
         }
         else
 #endif
         {
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, sTransmitPendingBit, OT_ERROR_NONE);
+            otRadioFrame *ackPtr = (sAckFrame.mPsdu == NULL) ? NULL : &sAckFrame;
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, ackPtr, OT_ERROR_NONE);
+        }
+
+        if (sAckFrame.mPsdu != NULL)
+        {
+            nrf_drv_radio802154_buffer_free(sAckFrame.mPsdu - 1);
+            sAckFrame.mPsdu = NULL;
         }
 
         resetPendingEvent(kPendingEventFrameTransmitted);
@@ -541,7 +552,7 @@ void nrf5RadioProcess(otInstance *aInstance)
         else
 #endif
         {
-            otPlatRadioTransmitDone(aInstance, &sTransmitFrame, false, OT_ERROR_CHANNEL_ACCESS_FAILURE);
+            otPlatRadioTxDone(aInstance, &sTransmitFrame, NULL, OT_ERROR_CHANNEL_ACCESS_FAILURE);
         }
 
         resetPendingEvent(kPendingEventChannelAccessFailure);
@@ -573,7 +584,7 @@ void nrf5RadioProcess(otInstance *aInstance)
 
 void nrf_drv_radio802154_received(uint8_t *p_data, int8_t power, int8_t lqi)
 {
-    RadioPacket *receivedFrame = NULL;
+    otRadioFrame *receivedFrame = NULL;
 
     for (uint32_t i = 0; i < RADIO_RX_BUFFERS; i++)
     {
@@ -595,9 +606,20 @@ void nrf_drv_radio802154_received(uint8_t *p_data, int8_t power, int8_t lqi)
     receivedFrame->mChannel = nrf_drv_radio802154_channel_get();
 }
 
-void nrf_drv_radio802154_transmitted(bool pending_bit)
+void nrf_drv_radio802154_transmitted(uint8_t *aAckPsdu, int8_t aPower, int8_t aLqi)
 {
-    sTransmitPendingBit = pending_bit;
+    if (aAckPsdu == NULL)
+    {
+        sAckFrame.mPsdu = NULL;
+    }
+    else
+    {
+        sAckFrame.mPsdu    = &aAckPsdu[1];
+        sAckFrame.mLength  = aAckPsdu[0];
+        sAckFrame.mPower   = aPower;
+        sAckFrame.mLqi     = aLqi;
+        sAckFrame.mChannel = nrf_drv_radio802154_channel_get();
+    }
 
     setPendingEvent(kPendingEventFrameTransmitted);
 }

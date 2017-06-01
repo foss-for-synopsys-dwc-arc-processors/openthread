@@ -773,7 +773,7 @@ otLwfEventWorkerThread(
     pFilter->otInstanceSize -= sizeof(PMS_FILTER);
 
     // Initialize the OpenThread library
-    pFilter->otCachedRole = kDeviceRoleDisabled;
+    pFilter->otCachedRole = OT_DEVICE_ROLE_DISABLED;
     pFilter->otCtx = otInstanceInit(pFilter->otInstanceBuffer + sizeof(PMS_FILTER), &pFilter->otInstanceSize);
     NT_ASSERT(pFilter->otCtx);
     if (pFilter->otCtx == NULL)
@@ -1091,7 +1091,7 @@ otLwfEventWorkerThread(
         }
 
         // If we have a frame ready to transmit, do it now if we are allowed to transmit
-        if (pFilter->otPhyState == kStateTransmit && !pFilter->SendPending)
+        if (pFilter->otRadioState == OT_RADIO_STATE_TRANSMIT && !pFilter->SendPending)
         {
             otLwfRadioTransmitFrame(pFilter);
         }

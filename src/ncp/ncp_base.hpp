@@ -136,11 +136,6 @@ protected:
     void HandleReceive(const uint8_t *buf, uint16_t bufLength);
 
     /**
-     * Called by the subclass to indicate when a frame was removed and some space in tx buffer is available.
-     */
-    void HandleSpaceAvailableInTxBuffer(void);
-
-    /**
      * Called by the subclass to learn when the host wake operation must be issued.
      */
     bool ShouldWakeHost(void);
@@ -154,6 +149,8 @@ private:
 
     otError OutboundFrameSend(void);
 
+    NcpFrameBuffer::FrameTag GetLastOutboundFrameTag(void);
+
 #if OPENTHREAD_ENABLE_BORDER_AGENT_PROXY && OPENTHREAD_FTD
     /**
      * Trampoline for HandleBorderAgentProxyStream().
@@ -162,6 +159,14 @@ private:
 
     void HandleBorderAgentProxyStream(otMessage *aMessage, uint16_t aLocator, uint16_t aPort);
 #endif // OPENTHREAD_ENABLE_BORDER_AGENT_PROXY && OPENTHREAD_FTD
+
+    /**
+     * Trampoline for NcpFrameBuffer FrameRemoved Callback.
+     */
+    static void HandleFrameRemovedFromNcpBuffer(void *aContext, NcpFrameBuffer::FrameTag aFrameTag,
+                                                NcpFrameBuffer *aNcpBuffer);
+
+    void HandleFrameRemovedFromNcpBuffer(NcpFrameBuffer::FrameTag aFrameTag);
 
     /**
      * Trampoline for HandleDatagramFromStack().
@@ -173,9 +178,9 @@ private:
     /**
      * Trampoline for HandleRawFrame().
      */
-    static void HandleRawFrame(const RadioPacket *aFrame, void *aContext);
+    static void HandleRawFrame(const otRadioFrame *aFrame, void *aContext);
 
-    void HandleRawFrame(const RadioPacket *aFrame);
+    void HandleRawFrame(const otRadioFrame *aFrame);
 
     /**
      * Trampoline for HandleActiveScanResult().
@@ -217,17 +222,17 @@ private:
     /**
      * Trampoline for LinkRawReceiveDone().
      */
-    static void LinkRawReceiveDone(otInstance *aInstance, RadioPacket *aPacket, otError aError);
+    static void LinkRawReceiveDone(otInstance *aInstance, otRadioFrame *aFrame, otError aError);
 
-    void LinkRawReceiveDone(RadioPacket *aPacket, otError aError);
+    void LinkRawReceiveDone(otRadioFrame *aFrame, otError aError);
 
     /**
      * Trampoline for LinkRawTransmitDone().
      */
-    static void LinkRawTransmitDone(otInstance *aInstance, RadioPacket *aPacket, bool aFramePending,
+    static void LinkRawTransmitDone(otInstance *aInstance, otRadioFrame *aFrame, bool aFramePending,
                                     otError aError);
 
-    void LinkRawTransmitDone(RadioPacket *aPacket, bool aFramePending, otError aError);
+    void LinkRawTransmitDone(otRadioFrame *aFrame, bool aFramePending, otError aError);
 
     /**
      * Trampoline for LinkRawEnergyScanDone().
@@ -239,10 +244,6 @@ private:
 #endif // OPENTHREAD_ENABLE_RAW_LINK_API
 
     static void HandleNetifStateChanged(uint32_t flags, void *context);
-
-    static void HandleFrameTransmitDone(void *aContext, otError aError);
-
-    void HandleFrameTransmitDone(otError aError);
 
 private:
 
@@ -257,20 +258,20 @@ private:
     otError HandleCommandPropertyGet(uint8_t header, spinel_prop_key_t key);
 
     otError HandleCommandPropertySet(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                         uint16_t value_len);
+                                     uint16_t value_len);
 
     otError HandleCommandPropertyInsert(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                            uint16_t value_len);
+                                        uint16_t value_len);
 
     otError HandleCommandPropertyRemove(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                            uint16_t value_len);
+                                        uint16_t value_len);
 
     otError SendLastStatus(uint8_t header, spinel_status_t lastStatus);
 
 private:
 
     otError SendPropertyUpdate(uint8_t header, uint8_t command, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                   uint16_t value_len);
+                               uint16_t value_len);
 
     otError SendPropertyUpdate(uint8_t header, uint8_t command, spinel_prop_key_t key, otMessage *message);
 
@@ -279,12 +280,12 @@ private:
 private:
 
     typedef otError(NcpBase::*CommandHandlerType)(uint8_t header, unsigned int command, const uint8_t *arg_ptr,
-                                                      uint16_t arg_len);
+                                                  uint16_t arg_len);
 
     typedef otError(NcpBase::*GetPropertyHandlerType)(uint8_t header, spinel_prop_key_t key);
 
     typedef otError(NcpBase::*SetPropertyHandlerType)(uint8_t header, spinel_prop_key_t key,
-                                                          const uint8_t *value_ptr, uint16_t value_len);
+                                                      const uint8_t *value_ptr, uint16_t value_len);
 
     struct CommandHandlerEntry
     {
@@ -325,18 +326,18 @@ private:
     otError CommandHandler_NOOP(uint8_t header, unsigned int command, const uint8_t *arg_ptr, uint16_t arg_len);
     otError CommandHandler_RESET(uint8_t header, unsigned int command, const uint8_t *arg_ptr, uint16_t arg_len);
     otError CommandHandler_PROP_VALUE_GET(uint8_t header, unsigned int command, const uint8_t *arg_ptr,
-                                              uint16_t arg_len);
+                                          uint16_t arg_len);
     otError CommandHandler_PROP_VALUE_SET(uint8_t header, unsigned int command, const uint8_t *arg_ptr,
-                                              uint16_t arg_len);
+                                          uint16_t arg_len);
     otError CommandHandler_PROP_VALUE_INSERT(uint8_t header, unsigned int command, const uint8_t *arg_ptr,
-                                                 uint16_t arg_len);
+                                             uint16_t arg_len);
     otError CommandHandler_PROP_VALUE_REMOVE(uint8_t header, unsigned int command, const uint8_t *arg_ptr,
-                                                 uint16_t arg_len);
+                                             uint16_t arg_len);
     otError CommandHandler_NET_SAVE(uint8_t header, unsigned int command, const uint8_t *arg_ptr, uint16_t arg_len);
     otError CommandHandler_NET_CLEAR(uint8_t header, unsigned int command, const uint8_t *arg_ptr,
-                                         uint16_t arg_len);
+                                     uint16_t arg_len);
     otError CommandHandler_NET_RECALL(uint8_t header, unsigned int command, const uint8_t *arg_ptr,
-                                          uint16_t arg_len);
+                                      uint16_t arg_len);
 
     otError GetPropertyHandler_ChannelMaskHelper(uint8_t header, spinel_prop_key_t key, uint32_t channel_mask);
 
@@ -382,7 +383,7 @@ private:
     otError GetPropertyHandler_IPV6_ROUTE_TABLE(uint8_t header, spinel_prop_key_t key);
     otError GetPropertyHandler_IPV6_ICMP_PING_OFFLOAD(uint8_t header, spinel_prop_key_t key);
     otError GetPropertyHandler_THREAD_RLOC16_DEBUG_PASSTHRU(uint8_t header, spinel_prop_key_t key);
-    otError GetPropertyHandler_THREAD_LOCAL_ROUTES(uint8_t header, spinel_prop_key_t key);
+    otError GetPropertyHandler_THREAD_OFF_MESH_ROUTES(uint8_t header, spinel_prop_key_t key);
     otError GetPropertyHandler_STREAM_NET(uint8_t header, spinel_prop_key_t key);
     otError GetPropertyHandler_MAC_SCAN_MASK(uint8_t header, spinel_prop_key_t key);
     otError GetPropertyHandler_MAC_SCAN_PERIOD(uint8_t header, spinel_prop_key_t key);
@@ -450,200 +451,200 @@ private:
 
 
     otError SetPropertyHandler_POWER_STATE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                               uint16_t value_len);
+                                           uint16_t value_len);
     otError SetPropertyHandler_HOST_POWER_STATE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
                                                 uint16_t value_len);
     otError SetPropertyHandler_PHY_TX_POWER(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
                                             uint16_t value_len);
     otError SetPropertyHandler_PHY_CHAN(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                            uint16_t value_len);
+                                        uint16_t value_len);
     otError SetPropertyHandler_MAC_SCAN_MASK(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                 uint16_t value_len);
+                                             uint16_t value_len);
     otError SetPropertyHandler_MAC_SCAN_STATE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                  uint16_t value_len);
+                                              uint16_t value_len);
     otError SetPropertyHandler_MAC_15_4_PANID(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                  uint16_t value_len);
+                                              uint16_t value_len);
     otError SetPropertyHandler_MAC_15_4_LADDR(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                  uint16_t value_len);
+                                              uint16_t value_len);
     otError SetPropertyHandler_MAC_RAW_STREAM_ENABLED(uint8_t header, spinel_prop_key_t key,
-                                                          const uint8_t *value_ptr, uint16_t value_len);
+                                                      const uint8_t *value_ptr, uint16_t value_len);
 
 #if OPENTHREAD_ENABLE_RAW_LINK_API
     otError SetPropertyHandler_MAC_15_4_SADDR(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                  uint16_t value_len);
-    otError SetPropertyHandler_STREAM_RAW(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
                                               uint16_t value_len);
+    otError SetPropertyHandler_STREAM_RAW(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
+                                          uint16_t value_len);
 #endif // OPENTHREAD_ENABLE_RAW_LINK_API
 
     otError SetPropertyHandler_NET_IF_UP(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                             uint16_t value_len);
+                                         uint16_t value_len);
     otError SetPropertyHandler_NET_STACK_UP(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                uint16_t value_len);
-    otError SetPropertyHandler_NET_ROLE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
                                             uint16_t value_len);
+    otError SetPropertyHandler_NET_ROLE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
+                                        uint16_t value_len);
     otError SetPropertyHandler_NET_NETWORK_NAME(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                    uint16_t value_len);
+                                                uint16_t value_len);
     otError SetPropertyHandler_NET_XPANID(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                              uint16_t value_len);
+                                          uint16_t value_len);
     otError SetPropertyHandler_NET_MASTER_KEY(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                  uint16_t value_len);
-    otError SetPropertyHandler_NET_KEY_SEQUENCE_COUNTER(uint8_t header, spinel_prop_key_t key,
-                                                            const uint8_t *value_ptr, uint16_t value_len);
-    otError SetPropertyHandler_NET_KEY_SWITCH_GUARDTIME(uint8_t header, spinel_prop_key_t key,
-                                                            const uint8_t *value_ptr, uint16_t value_len);
-    otError SetPropertyHandler_STREAM_NET_INSECURE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                       uint16_t value_len);
-    otError SetPropertyHandler_STREAM_NET(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
                                               uint16_t value_len);
+    otError SetPropertyHandler_NET_KEY_SEQUENCE_COUNTER(uint8_t header, spinel_prop_key_t key,
+                                                        const uint8_t *value_ptr, uint16_t value_len);
+    otError SetPropertyHandler_NET_KEY_SWITCH_GUARDTIME(uint8_t header, spinel_prop_key_t key,
+                                                        const uint8_t *value_ptr, uint16_t value_len);
+    otError SetPropertyHandler_STREAM_NET_INSECURE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
+                                                   uint16_t value_len);
+    otError SetPropertyHandler_STREAM_NET(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
+                                          uint16_t value_len);
     otError SetPropertyHandler_IPV6_ML_PREFIX(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                  uint16_t value_len);
+                                              uint16_t value_len);
     otError SetPropertyHandler_IPV6_ICMP_PING_OFFLOAD(uint8_t header, spinel_prop_key_t key,
-                                                          const uint8_t *value_ptr, uint16_t value_len);
+                                                      const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_RLOC16_DEBUG_PASSTHRU(uint8_t header, spinel_prop_key_t key,
-                                                                const uint8_t *value_ptr, uint16_t value_len);
+                                                            const uint8_t *value_ptr, uint16_t value_len);
 
     otError SetPropertyHandler_THREAD_BA_PROXY_STREAM(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                          uint16_t value_len);
+                                                      uint16_t value_len);
 #if OPENTHREAD_ENABLE_RAW_LINK_API
     otError SetPropertyHandler_PHY_ENABLED(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                               uint16_t value_len);
+                                           uint16_t value_len);
 #endif // OPENTHREAD_ENABLE_RAW_LINK_API
 
     otError SetPropertyHandler_MAC_PROMISCUOUS_MODE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                        uint16_t value_len);
+                                                    uint16_t value_len);
     otError SetPropertyHandler_MAC_SCAN_PERIOD(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                   uint16_t value_len);
+                                               uint16_t value_len);
     otError SetPropertyHandler_MAC_WHITELIST(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                 uint16_t value_len);
+                                             uint16_t value_len);
     otError SetPropertyHandler_MAC_WHITELIST_ENABLED(uint8_t header, spinel_prop_key_t key,
-                                                         const uint8_t *value_ptr, uint16_t value_len);
+                                                     const uint8_t *value_ptr, uint16_t value_len);
 #if OPENTHREAD_ENABLE_RAW_LINK_API
     otError SetPropertyHandler_MAC_SRC_MATCH_ENABLED(uint8_t header, spinel_prop_key_t key,
-                                                         const uint8_t *value_ptr, uint16_t value_len);
+                                                     const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_MAC_SRC_MATCH_SHORT_ADDRESSES(uint8_t header, spinel_prop_key_t key,
-                                                                 const uint8_t *value_ptr, uint16_t value_len);
+                                                             const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_MAC_SRC_MATCH_EXTENDED_ADDRESSES(uint8_t header, spinel_prop_key_t key,
-                                                                    const uint8_t *value_ptr, uint16_t value_len);
+                                                                const uint8_t *value_ptr, uint16_t value_len);
 #endif
 #if OPENTHREAD_FTD
     otError SetPropertyHandler_NET_PSKC(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                            uint16_t value_len);
+                                        uint16_t value_len);
 #endif
     otError SetPropertyHandler_THREAD_MODE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                               uint16_t value_len);
+                                           uint16_t value_len);
 
 #if OPENTHREAD_FTD
     otError SetPropertyHandler_THREAD_LOCAL_LEADER_WEIGHT(uint8_t header, spinel_prop_key_t key,
-                                                              const uint8_t *value_ptr, uint16_t value_len);
-    otError SetPropertyHandler_THREAD_CHILD_COUNT_MAX(uint8_t header, spinel_prop_key_t key,
                                                           const uint8_t *value_ptr, uint16_t value_len);
+    otError SetPropertyHandler_THREAD_CHILD_COUNT_MAX(uint8_t header, spinel_prop_key_t key,
+                                                      const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_CHILD_TIMEOUT(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                        uint16_t value_len);
+                                                    uint16_t value_len);
     otError SetPropertyHandler_THREAD_ROUTER_UPGRADE_THRESHOLD(uint8_t header, spinel_prop_key_t key,
-                                                                   const uint8_t *value_ptr, uint16_t value_len);
+                                                               const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_ROUTER_DOWNGRADE_THRESHOLD(uint8_t header, spinel_prop_key_t key,
-                                                                     const uint8_t *value_ptr, uint16_t value_len);
+                                                                 const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_ROUTER_SELECTION_JITTER(uint8_t header, spinel_prop_key_t key,
-                                                                  const uint8_t *value_ptr, uint16_t value_len);
+                                                              const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_CONTEXT_REUSE_DELAY(uint8_t header, spinel_prop_key_t key,
-                                                              const uint8_t *value_ptr, uint16_t value_len);
+                                                          const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_NETWORK_ID_TIMEOUT(uint8_t header, spinel_prop_key_t key,
-                                                             const uint8_t *value_ptr, uint16_t value_len);
+                                                         const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_PREFERRED_ROUTER_ID(uint8_t header, spinel_prop_key_t key,
-                                                              const uint8_t *value_ptr, uint16_t value_len);
+                                                          const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_ALLOW_LOCAL_NET_DATA_CHANGE(uint8_t header, spinel_prop_key_t key,
-                                                                      const uint8_t *value_ptr, uint16_t value_len);
+                                                                  const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_ROUTER_ROLE_ENABLED(uint8_t header, spinel_prop_key_t key,
-                                                              const uint8_t *value_ptr, uint16_t value_len);
+                                                          const uint8_t *value_ptr, uint16_t value_len);
 #if OPENTHREAD_CONFIG_ENABLE_STEERING_DATA_SET_OOB
     otError SetPropertyHandler_THREAD_THREAD_STEERING_DATA(uint8_t header, spinel_prop_key_t key,
-                                                               const uint8_t *value_ptr, uint16_t value_len);
+                                                           const uint8_t *value_ptr, uint16_t value_len);
 #endif
 
 #endif // #if OPENTHREAD_FTD
 
     otError SetPropertyHandler_THREAD_DISCOVERY_SCAN_JOINER_FLAG(uint8_t header, spinel_prop_key_t key,
-                                                                     const uint8_t *value_ptr, uint16_t value_len);
+                                                                 const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_DISCOVERY_SCAN_ENABLE_FILTERING(uint8_t header, spinel_prop_key_t key,
-                                                                          const uint8_t *value_ptr, uint16_t value_len);
+                                                                      const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_DISCOVERY_SCAN_PANID(uint8_t header, spinel_prop_key_t key,
-                                                               const uint8_t *value_ptr, uint16_t value_len);
+                                                           const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_THREAD_ASSISTING_PORTS(uint8_t header, spinel_prop_key_t key,
-                                                          const uint8_t *value_ptr, uint16_t value_len);
+                                                      const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_NET_REQUIRE_JOIN_EXISTING(uint8_t header, spinel_prop_key_t key,
-                                                             const uint8_t *value_ptr, uint16_t value_len);
+                                                         const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_CNTR_RESET(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                              uint16_t value_len);
+                                          uint16_t value_len);
     otError SetPropertyHandler_DEBUG_NCP_LOG_LEVEL(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
                                                    uint16_t value_len);
 #if OPENTHREAD_ENABLE_COMMISSIONER
     otError SetPropertyHandler_THREAD_COMMISSIONER_ENABLED(uint8_t header, spinel_prop_key_t key,
-                                                               const uint8_t *value_ptr, uint16_t value_len);
+                                                           const uint8_t *value_ptr, uint16_t value_len);
 #endif
 
     otError SetPropertyHandler_BA_PROXY_ENABLED(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                    uint16_t value_len);
+                                                uint16_t value_len);
 #if OPENTHREAD_ENABLE_JAM_DETECTION
     otError SetPropertyHandler_JAM_DETECT_ENABLE(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                     uint16_t value_len);
+                                                 uint16_t value_len);
     otError SetPropertyHandler_JAM_DETECT_RSSI_THRESHOLD(uint8_t header, spinel_prop_key_t key,
-                                                             const uint8_t *value_ptr, uint16_t value_len);
+                                                         const uint8_t *value_ptr, uint16_t value_len);
     otError SetPropertyHandler_JAM_DETECT_WINDOW(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                     uint16_t value_len);
+                                                 uint16_t value_len);
     otError SetPropertyHandler_JAM_DETECT_BUSY(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                   uint16_t value_len);
+                                               uint16_t value_len);
 #endif
 
 #if OPENTHREAD_ENABLE_DIAG
     otError SetPropertyHandler_NEST_STREAM_MFG(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                   uint16_t value_len);
+                                               uint16_t value_len);
 #endif
 
 #if OPENTHREAD_ENABLE_LEGACY
     otError SetPropertyHandler_NEST_LEGACY_ULA_PREFIX(uint8_t header, spinel_prop_key_t key,
-                                                          const uint8_t *value_ptr, uint16_t value_len);
+                                                      const uint8_t *value_ptr, uint16_t value_len);
 #endif
 
 #if OPENTHREAD_ENABLE_RAW_LINK_API
     otError InsertPropertyHandler_MAC_SRC_MATCH_SHORT_ADDRESSES(uint8_t header, spinel_prop_key_t key,
-                                                                    const uint8_t *value_ptr, uint16_t value_len);
+                                                                const uint8_t *value_ptr, uint16_t value_len);
     otError InsertPropertyHandler_MAC_SRC_MATCH_EXTENDED_ADDRESSES(uint8_t header, spinel_prop_key_t key,
-                                                                       const uint8_t *value_ptr, uint16_t value_len);
+                                                                   const uint8_t *value_ptr, uint16_t value_len);
 #endif
     otError InsertPropertyHandler_IPV6_ADDRESS_TABLE(uint8_t header, spinel_prop_key_t key,
+                                                     const uint8_t *value_ptr, uint16_t value_len);
+    otError InsertPropertyHandler_THREAD_OFF_MESH_ROUTES(uint8_t header, spinel_prop_key_t key,
                                                          const uint8_t *value_ptr, uint16_t value_len);
-    otError InsertPropertyHandler_THREAD_LOCAL_ROUTES(uint8_t header, spinel_prop_key_t key,
-                                                          const uint8_t *value_ptr, uint16_t value_len);
     otError InsertPropertyHandler_THREAD_ON_MESH_NETS(uint8_t header, spinel_prop_key_t key,
-                                                          const uint8_t *value_ptr, uint16_t value_len);
+                                                      const uint8_t *value_ptr, uint16_t value_len);
     otError InsertPropertyHandler_THREAD_ASSISTING_PORTS(uint8_t header, spinel_prop_key_t key,
-                                                             const uint8_t *value_ptr, uint16_t value_len);
+                                                         const uint8_t *value_ptr, uint16_t value_len);
     otError InsertPropertyHandler_MAC_WHITELIST(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                    uint16_t value_len);
+                                                uint16_t value_len);
 #if OPENTHREAD_ENABLE_COMMISSIONER
     otError InsertPropertyHandler_THREAD_JOINERS(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-            uint16_t value_len);
+                                                 uint16_t value_len);
 #endif
 
 #if OPENTHREAD_ENABLE_RAW_LINK_API
     otError RemovePropertyHandler_MAC_SRC_MATCH_SHORT_ADDRESSES(uint8_t header, spinel_prop_key_t key,
-                                                                    const uint8_t *value_ptr, uint16_t value_len);
+                                                                const uint8_t *value_ptr, uint16_t value_len);
     otError RemovePropertyHandler_MAC_SRC_MATCH_EXTENDED_ADDRESSES(uint8_t header, spinel_prop_key_t key,
-                                                                       const uint8_t *value_ptr, uint16_t value_len);
+                                                                   const uint8_t *value_ptr, uint16_t value_len);
 #endif
     otError RemovePropertyHandler_IPV6_ADDRESS_TABLE(uint8_t header, spinel_prop_key_t key,
+                                                     const uint8_t *value_ptr, uint16_t value_len);
+    otError RemovePropertyHandler_THREAD_OFF_MESH_ROUTES(uint8_t header, spinel_prop_key_t key,
                                                          const uint8_t *value_ptr, uint16_t value_len);
-    otError RemovePropertyHandler_THREAD_LOCAL_ROUTES(uint8_t header, spinel_prop_key_t key,
-                                                          const uint8_t *value_ptr, uint16_t value_len);
     otError RemovePropertyHandler_THREAD_ON_MESH_NETS(uint8_t header, spinel_prop_key_t key,
-                                                          const uint8_t *value_ptr, uint16_t value_len);
+                                                      const uint8_t *value_ptr, uint16_t value_len);
     otError RemovePropertyHandler_THREAD_ASSISTING_PORTS(uint8_t header, spinel_prop_key_t key,
-                                                             const uint8_t *value_ptr, uint16_t value_len);
+                                                         const uint8_t *value_ptr, uint16_t value_len);
     otError RemovePropertyHandler_MAC_WHITELIST(uint8_t header, spinel_prop_key_t key, const uint8_t *value_ptr,
-                                                    uint16_t value_len);
+                                                uint16_t value_len);
 #if OPENTHREAD_FTD
     otError RemovePropertyHandler_THREAD_ACTIVE_ROUTER_IDS(uint8_t header, spinel_prop_key_t key,
-                                                               const uint8_t *value_ptr, uint16_t value_len);
+                                                           const uint8_t *value_ptr, uint16_t value_len);
 #endif
 
 public:
@@ -658,7 +659,7 @@ public:
 
 protected:
     static NcpBase *sNcpInstance;
-    otInstance* mInstance;
+    otInstance *mInstance;
     NcpFrameBuffer  mTxFrameBuffer;
 
 private:
@@ -679,6 +680,7 @@ private:
     bool mShouldSignalEndOfScan;
     spinel_host_power_state_t mHostPowerState;
     bool mHostPowerStateInProgress;
+    NcpFrameBuffer::FrameTag mHostPowerReplyFrameTag;
     uint8_t mHostPowerStateHeader;
 
 #if OPENTHREAD_ENABLE_JAM_DETECTION

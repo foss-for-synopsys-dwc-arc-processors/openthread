@@ -444,8 +444,8 @@ otError MeshForwarder::PrepareDiscoverRequest(void)
 
     VerifyOrExit(!mScanning);
 
-    mScanChannel = kPhyMinChannel;
-    mScanChannels >>= kPhyMinChannel;
+    mScanChannel = OT_RADIO_CHANNEL_MIN;
+    mScanChannels >>= OT_RADIO_CHANNEL_MIN;
     mRestoreChannel = mNetif.GetMac().GetChannel();
     mRestorePanId = mNetif.GetMac().GetPanId();
 
@@ -454,7 +454,7 @@ otError MeshForwarder::PrepareDiscoverRequest(void)
         mScanChannels >>= 1;
         mScanChannel++;
 
-        if (mScanChannel > kPhyMaxChannel)
+        if (mScanChannel > OT_RADIO_CHANNEL_MAX)
         {
             mNetif.GetMle().HandleDiscoverComplete();
             ExitNow(error = OT_ERROR_DROP);
@@ -679,10 +679,10 @@ otError MeshForwarder::UpdateIp6Route(Message &aMessage)
 
     aMessage.Read(0, sizeof(ip6Header), &ip6Header);
 
-    switch (mNetif.GetMle().GetDeviceState())
+    switch (mNetif.GetMle().GetRole())
     {
-    case Mle::kDeviceStateDisabled:
-    case Mle::kDeviceStateDetached:
+    case OT_DEVICE_ROLE_DISABLED:
+    case OT_DEVICE_ROLE_DETACHED:
         if (ip6Header.GetDestination().IsLinkLocal() || ip6Header.GetDestination().IsLinkLocalMulticast())
         {
             GetMacDestinationAddress(ip6Header.GetDestination(), mMacDest);
@@ -695,7 +695,7 @@ otError MeshForwarder::UpdateIp6Route(Message &aMessage)
 
         break;
 
-    case Mle::kDeviceStateChild:
+    case OT_DEVICE_ROLE_CHILD:
         if (aMessage.IsLinkSecurityEnabled())
         {
             mMacDest.mLength = sizeof(mMacDest.mShortAddress);
@@ -725,8 +725,8 @@ otError MeshForwarder::UpdateIp6Route(Message &aMessage)
 
 #if OPENTHREAD_FTD
         {
-        case Mle::kDeviceStateRouter:
-        case Mle::kDeviceStateLeader:
+        case OT_DEVICE_ROLE_ROUTER:
+        case OT_DEVICE_ROLE_LEADER:
             uint16_t rloc16;
             uint16_t aloc16;
             Neighbor *neighbor;
@@ -1224,7 +1224,7 @@ otError MeshForwarder::SendFragment(Message &aMessage, Mac::Frame &aFrame)
     // initialize Mesh header
     if (mAddMeshHeader)
     {
-        if (mNetif.GetMle().GetDeviceState() == Mle::kDeviceStateChild)
+        if (mNetif.GetMle().GetRole() == OT_DEVICE_ROLE_CHILD)
         {
             // REED sets hopsLeft to max (16) + 1. It does not know the route cost.
             hopsLeft = Mle::kMaxRouteCost + 1;
@@ -1645,7 +1645,7 @@ void MeshForwarder::HandleDiscoverTimer(void)
         mScanChannels >>= 1;
         mScanChannel++;
 
-        if (mScanChannel > kPhyMaxChannel)
+        if (mScanChannel > OT_RADIO_CHANNEL_MAX)
         {
             mSendQueue.Dequeue(*mSendMessage);
             mSendMessage->Free();
@@ -2131,7 +2131,7 @@ void MeshForwarder::HandleDataRequest(const Mac::Address &aMacSource, const Thre
     // Security Check: only process secure Data Poll frames.
     VerifyOrExit(aMessageInfo.mLinkSecurity);
 
-    VerifyOrExit(mNetif.GetMle().GetDeviceState() != Mle::kDeviceStateDetached);
+    VerifyOrExit(mNetif.GetMle().GetRole() != OT_DEVICE_ROLE_DETACHED);
 
     VerifyOrExit((child = mNetif.GetMle().GetChild(aMacSource)) != NULL);
     child->SetLastHeard(Timer::GetNow());
@@ -2156,7 +2156,7 @@ void MeshForwarder::HandleDataPollTimeout(void *aContext)
     static_cast<MeshForwarder *>(aContext)->GetDataPollManager().HandlePollTimeout();
 }
 
-#if (OPENTHREAD_CONFIG_LOG_LEVEL >= OPENTHREAD_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_MAC == 1)
+#if (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_MAC == 1)
 
 void MeshForwarder::LogIp6Message(MessageAction aAction, const Message &aMessage, const Mac::Address *aMacAddress,
                                   otError aError)
@@ -2278,12 +2278,12 @@ exit:
     return;
 }
 
-#else // #if (OPENTHREAD_CONFIG_LOG_LEVEL >= OPENTHREAD_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_MAC == 1)
+#else // #if (OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_INFO) && (OPENTHREAD_CONFIG_LOG_MAC == 1)
 
 void MeshForwarder::LogIp6Message(MessageAction, const Message &, const Mac::Address *, otError)
 {
 }
 
-#endif //#if OPENTHREAD_CONFIG_LOG_LEVEL >= OPENTHREAD_LOG_LEVEL_INFO
+#endif //#if OPENTHREAD_CONFIG_LOG_LEVEL >= OT_LOG_LEVEL_INFO
 
 }  // namespace ot
